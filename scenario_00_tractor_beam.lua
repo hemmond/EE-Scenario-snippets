@@ -14,7 +14,32 @@ function init()
     VisualAsteroid():setPosition(3000, 5000):setSize(random(100, 500))
     
     local player = PlayerSpaceship():setPosition(500, 5000):setFaction("Human Navy"):setTemplate("Atlantis"):setRotation(200)
-    tractorBeam_initShip(player)
+    tractorBeam_enable(player)
+    
+    addGMFunction(
+        "Tractor ON",
+        function()
+            local ships = getGMSelection()
+            for i=1, #ships do
+                if ships[i].typeName == "PlayerSpaceship" then
+                    tractorBeam_enable(ships[i])
+                end
+            end
+        end
+    )
+
+    addGMFunction(
+        "Tractor OFF",
+        function()
+            local ships = getGMSelection()
+            for i=1, #ships do
+                if ships[i].typeName == "PlayerSpaceship" then
+                    tractorBeam_disable(ships[i])
+                end
+            end
+        end
+    )
+    
 end
 
 function update(delta)

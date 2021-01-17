@@ -6,7 +6,8 @@
 --  * tractorBeam_init() function in your init() function (to set up this module)
 --  * tractorBeam_update(player_ship) function for each of your player ships in update() function
 
--- To set up tractor beam functionality, you need to call tractorBeam_initShip(player_ship) on required ship. 
+-- To set up tractor beam functionality, you need to call tractorBeam_enable(player_ship) on required ship. 
+-- To remove tractor beam functionality, you need to call tractorBeam_disable(player_ship) on required ship. 
 
 require("utils.lua")
 
@@ -24,18 +25,28 @@ function tractorBeam_init()
 end
 
 -- This enables tractor beam function on specified player ship
-function tractorBeam_initShip(player_ship)
-    player_ship.tractor = true
-	player_ship.tractor_target_lock = false
+function tractorBeam_enable(player_ship)
+    if player_ship.tractor == nil or player_ship.tractor == false then
+        --print("TB enable", player_ship:getCallSign())
+        player_ship.tractor = true
+        player_ship.tractor_target_lock = false
     --print("TB init ship: ", player_ship:getCallSign())
+    end
 end
 
 -- This removes tractor beam function on specified player ship
--- TODO test if this can work (THIS FUNCTION IS NOT TESTED AND MIGHT NOT DISABLE THIS FEATURE)
-function tractorBeam_disableOnShip(player_ship)
-    player_ship.tractor = false
-	player_ship.tractor_target_lock = false
-    removeTractorObjectButtons(player_ship)
+function tractorBeam_disable(player_ship)
+    if player_ship.tractor == true then
+        --print("TB disable", player_ship:getCallSign())
+        player_ship.tractor = false
+        player_ship.tractor_target_lock = false
+        removeTractorObjectButtons(player_ship)
+        if player_ship.disengage_tractor_button ~= nil then
+            player_ship.tractor_target_lock = false
+            player_ship:removeCustom(player_ship.disengage_tractor_button)
+            player_ship.disengage_tractor_button = nil
+        end
+    end
 end
 
 --	Tractor functions (called from update loop)
