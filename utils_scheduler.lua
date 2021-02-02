@@ -9,8 +9,9 @@
 -- To add periodic job, use scheduler_add_periodic_job(run_every, func, identifier) function.
 -- To remove job, use scheduler_remove_job(identifier). 
 
+-- For more throough documentation, see comments in each function headers. Function parameters and usage are explained there more thoroughly. 
 
--- Init tractor beam library
+-- Init scheduler library
 function scheduler_init()
     scheduler_jobs = {}
 end
@@ -89,7 +90,7 @@ end
 -- Adds job to scheduler to run in specific time. 
 -- @param run_in: time from now when to run the event (in seconds)
 -- @param func: function to run when time comes.
--- @param identifier: optional argument to add special name to the event. 
+-- @param identifier: optional argument to add special name to the job. 
 function scheduler_add_job(run_in, func, identifier)
     if run_in ~= nil and func ~= nil then
         local activation_time = getScenarioTime()+run_in
@@ -98,7 +99,7 @@ function scheduler_add_job(run_in, func, identifier)
     end -- activation_time and func are not nil.
 end
 
--- Adds job to scheduler to run in specific time. 
+-- Adds job to scheduler to run periodicaly every run_every seconds. 
 -- @param run_every: Number of seconds between runs (first run is after this time first expires)
 -- @param func: function to run when time comes.
 -- @param identifier: optional argument to add special name to the event. 
