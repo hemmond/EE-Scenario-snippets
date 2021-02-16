@@ -54,6 +54,7 @@ end
 function tractorBeam_isTractorBeamEnabled(player_ship)
     if player_ship.tractor == nil then
         return false
+    end
     return player_ship.tractor
 end
 
