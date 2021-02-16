@@ -8,6 +8,7 @@
 
 -- To set up tractor beam functionality, you need to call tractorBeam_enable(player_ship) on required ship. 
 -- To remove tractor beam functionality, you need to call tractorBeam_disable(player_ship) on required ship. 
+-- Ro check if tractor beam functionality is enabled, you need to call tractorBeam_isTractorBeamEnabled(player_ship) on required ship.
 
 require("utils.lua")
 
@@ -47,6 +48,13 @@ function tractorBeam_disable(player_ship)
             player_ship.disengage_tractor_button = nil
         end
     end
+end
+
+-- This function returns if tractor beam is enabled or not. 
+function tractorBeam_isTractorBeamEnabled(player_ship)
+    if player_ship.tractor == nil then
+        return false
+    return player_ship.tractor
 end
 
 --	Tractor functions (called from update loop)
