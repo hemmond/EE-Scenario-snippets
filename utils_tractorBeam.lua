@@ -172,7 +172,8 @@ end
 -- This function is called when operator pushes tractor_target_button (button with target label)
 function _tractorBeam_targetDescription(player_ship)
     string.format("")	--necessary to have global reference for Serious Proton engine
-    tpx, tpy = p.tractor_target:getPosition()
+    local cpx, cpy = player_ship:getPosition()
+    local tpx, tpy = player_ship.tractor_target:getPosition()
     local target_distance = distance(cpx, cpy, tpx, tpy)/1000
     local theta = math.atan(tpy - cpy,tpx - cpx)
     if theta < 0 then
@@ -184,7 +185,7 @@ function _tractorBeam_targetDescription(player_ship)
         angle = angle - 360
     end
     local target_description = "target_description"
-    p:addCustomMessage("Engineering",target_description,string.format("Distance: %.1fU\nBearing: %.1f",target_distance,angle))
+    player_ship:addCustomMessage("Engineering",target_description,string.format("Distance: %.1fU\nBearing: %.1f",target_distance,angle))
 end
 
 -- This function is called when operator pushes tractor_next_target_button (next ship button)
