@@ -3,7 +3,7 @@
 --- Modified from Xansta's sandbox mission
 -- Type: Basic
 
-require("tractor_beam_utils.lua")
+require("utils_tractorBeam.lua")
 
 function init()
     tractorBeam_init()
