@@ -7,11 +7,12 @@
 
 --- Module API description: 
 --- * utils_ButtonWrapper:modifyOperatorPositions(operator_key, position_list) = Modify ECrewPositions for specified station
---- * utils_ButtonWrapper:addCustomButton(player_ship, operator, name, caption, callback)
---- * utils_ButtonWrapper:addCustomInfo(player_ship, operator, name, caption)
---- * utils_ButtonWrapper:addCustomMessage(player_ship, operator, name, caption)
---- * utils_ButtonWrapper:addCustomMessageWithCallback(player_ship, operator, name, caption, callback)
---- * utils_ButtonWrapper:removeCustom(player_ship, name)
+--- * utils_ButtonWrapper:closeAllMessagesUponClose(value) = change closing behavior
+--- * utils_ButtonWrapper:addCustomButton(player_ship, operator, name, caption, callback) = wrapper around PlayerSpaceship:addCustomButton
+--- * utils_ButtonWrapper:addCustomInfo(player_ship, operator, name, caption) = wrapper around PlayerSpaceship:addCustomInfo
+--- * utils_ButtonWrapper:addCustomMessage(player_ship, operator, name, caption) = wrapper around PlayerSpaceship:addCustomMessage
+--- * utils_ButtonWrapper:addCustomMessageWithCallback(player_ship, operator, name, caption, callback) = wrapper around PlayerSpaceship:addCustomMessageWithCallback
+--- * utils_ButtonWrapper:removeCustom(player_ship, name) = wrapper around PlayerSpaceship:removeCustom
 
 --- Functions that might be interesting in specific use-cases:
 --- * utils_ButtonWrapper:operatorPositions(operator_key)
@@ -29,7 +30,8 @@ utils_ButtonWrapper = {
         ["Engineering"]={"Engineering", "Engineering+"}, 
         ["Science"]={"Science", "Operations"},
         ["Relay"]={"Relay", "Operations", "AltRelay"}
-    }
+    },
+    close_all_messages_upon_close = true   -- When enabled, it will close customMessage or customMessageWithCallback on all stations when clicked on Close.
 }
 
 -- -------------------------------------------------------------
@@ -41,6 +43,16 @@ utils_ButtonWrapper = {
 -- @param position_list: Table (list) of ECrewPositions strings to be assigned to this operator
 function utils_ButtonWrapper:modifyOperatorPositions(operator_key, position_list)
     self.operators[operator_key] = position_list
+end
+
+function utils_ButtonWrapper:closeAllMessagesUponClose(value)
+    local boolVal = nil
+    if value then
+        boolVal = true
+    else
+        boolVal = false
+    end
+    self.close_all_messages_upon_close = boolVal
 end
 
 -- Get Operator position list
@@ -87,7 +99,13 @@ end
 -- @param caption: Text of the message (parameter of PlayerShip:addCustomMessage)
 function utils_ButtonWrapper:addCustomMessage(player_ship, operator, name, caption)
     for _, station in ipairs(self:operatorPositions(operator)) do
-        player_ship:addCustomMessage(station, name..station, caption)
+        if self.close_all_messages_upon_close then
+            player_ship:addCustomMessageWithCallback(station, name..station, caption, function()
+                utils_ButtonWrapper:removeCustom(player_ship, name)
+            end)
+        else
+            player_ship:addCustomMessage(station, name..station, caption)
+        end
     end
 end
 
@@ -99,22 +117,32 @@ end
 -- @param callback: Callback function to be run when message is closed (parameter of PlayerShip:addCustomMessageWithCallback)
 function utils_ButtonWrapper:addCustomMessageWithCallback(player_ship, operator, name, caption, callback)
     for _, station in ipairs(self:operatorPositions(operator)) do
-        player_ship:addCustomMessageWithCallback(station, name..station, caption, callback)
+        if self.close_all_messages_upon_close then
+            player_ship:addCustomMessageWithCallback(station, name..station, caption, function()
+                utils_ButtonWrapper:removeCustom(player_ship, name)
+                callback()
+            end)
+        else
+            player_ship:addCustomMessageWithCallback(station, name..station, caption, callback)
+        end
     end
 end
 
 -- Remove custom element from all stations
--- @param player_ship: Player ship to which you want to add a custom message
+-- @param player_ship: Player ship from which you want to remove a custom element
 -- @param name: String identifier of the element to be removed.
 function utils_ButtonWrapper:removeCustom(player_ship, name)
     local crew_positions = {"Helms", "Weapons", "Engineering", "Science", "Relay", "Tactical", 
                             "Engineering+", "Operations", "Single", "DamageControl", "PowerManagement", 
                             "Database", "AltRelay", "CommsOnly", "ShipLog"}
     for _, station in ipairs(crew_positions) do
-        print("Removing ", name, " from ", station)
         player_ship:removeCustom(name..station)
     end
 end
+
+-- -------------------------------------------------------------
+-- Debugging / specific use-case functions
+-- -------------------------------------------------------------
 
 -- Debugging function which prints ECrewPositions strings for selected operator
 -- @param operator_key: String identification of existing operator
