@@ -4,9 +4,10 @@
 -- Type: Basic
 
 require("utils_tractorBeam.lua")
+--require("utils_tractorBeam_wrap.lua")
 
 function init()
-    tractorBeam_init()
+    --tractorBeam_init()
     
     SpaceStation():setPosition(1000, 1000):setTemplate('Small Station'):setFaction("Human Navy"):setCallSign("Small station"):setRotation(random(0, 360))
     Artifact():setPosition(1000, 5000):setModel("small_frigate_1"):setDescription("Artifact")
@@ -14,7 +15,7 @@ function init()
     VisualAsteroid():setPosition(3000, 5000):setSize(random(100, 500))
     
     local player = PlayerSpaceship():setPosition(500, 5000):setFaction("Human Navy"):setTemplate("Atlantis"):setRotation(200)
-    tractorBeam_enable(player)
+    tractorBeam:enable(player)
     
     addGMFunction(
         "Tractor ON",
@@ -22,7 +23,7 @@ function init()
             local ships = getGMSelection()
             for i=1, #ships do
                 if ships[i].typeName == "PlayerSpaceship" then
-                    tractorBeam_enable(ships[i])
+                    tractorBeam:enable(ships[i])
                 end
             end
         end
@@ -34,7 +35,7 @@ function init()
             local ships = getGMSelection()
             for i=1, #ships do
                 if ships[i].typeName == "PlayerSpaceship" then
-                    tractorBeam_disable(ships[i])
+                    tractorBeam:disable(ships[i])
                 end
             end
         end
@@ -46,7 +47,7 @@ function update(delta)
     for pidx=1,32 do
         local player_ship = getPlayerShip(pidx)
 		if player_ship ~= nil and player_ship:isValid() then
-            tractorBeam_update(player_ship)
+            tractorBeam:update(player_ship)
         end
     end
 end
