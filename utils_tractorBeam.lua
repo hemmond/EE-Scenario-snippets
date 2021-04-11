@@ -3,7 +3,7 @@
 --- Code is extracted from Xansta's sandbox scenario. 
 
 --  If you want to use Tractor Beam functionality, you need to call:
---  * tractorBeam:update(player_ship) function for each of your player ships in update() function
+--  * tractorBeam:update(player_ship, delta) function for each of your player ships in update() function
 
 -- To set up tractor beam functionality, you need to call tractorBeam:enable(player_ship) on required ship. 
 -- To remove tractor beam functionality, you need to call tractorBeam:disable(player_ship) on required ship. 
@@ -24,7 +24,8 @@ tractorBeam = {
         "shield_hit_effect.png",
         "electric_sphere_texture.png"
     },
-    energy_drain = .000005
+    energy_drain = .000005,
+    equipped_ships = {}
 }
 
 -- This enables tractor beam function on specified player ship
@@ -34,9 +35,11 @@ function tractorBeam:enable(player_ship)
             enabled = true,
             target_lock = false
         }
+        table.insert(tractorBeam:equipped_ships, player_ship)
     elseif player_ship._tractorBeamData.enabled == false then
         player_ship._tractorBeamData.enabled = true
         player_ship._tractorBeamData.target_lock = false
+        table.insert(tractorBeam:equipped_ships, player_ship)
     end
 end
 
@@ -52,6 +55,7 @@ function tractorBeam:disable(player_ship)
             player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
             player_ship._tractorBeamData.disengage_tractor_button = nil
         end
+        table.remove(tractorBeam:equipped_ships, player_ship)
     end
 end
 
@@ -264,17 +268,28 @@ function tractorBeam:processTractor(player_ship)
     end
 end
 
--- This function needs to be called inside update() function. 
-function tractorBeam:update(player_ship)
-    player_name = player_ship:getCallSign()
-    --print("TB update: ", player_ship:getCallSign())
-    -- Count velocity of player ship, tractor beam works on low velocities only. 
-    local vx, vy = player_ship:getVelocity()
-    local dx=math.abs(vx)
-    local dy=math.abs(vy)
-    local player_velocity = math.sqrt((dx*dx)+(dy*dy))
-        
+-- Updates all tractor-beam equipped ships and locked targets.
+-- This function needs to be called inside update() function with delta specified.
+function tractorBeam:update(delta)
+    for _, player_ship in ipairs(tractorBeam:equipped_ships) do
+        tractorBeam:updateShip(player_ship, delta)
+    end
+end
+
+-- This function updates tractor beam equipped Player Ship.
+-- It shows buttons, calculates new target positions, etc.
+-- @param player_ship: instance of PlayerShip class
+-- @param delta: time difference between last call and this call.
+function tractorBeam:updateShip(player_ship, delta)
     if tractorBeam:isEnabled(player_ship) == true then       --Process this only if the ship has Tractor beam enabled. 
+        player_name = player_ship:getCallSign()
+        --print("TB update: ", player_ship:getCallSign())
+        -- Count velocity of player ship, tractor beam works on low velocities only.
+        local vx, vy = player_ship:getVelocity()
+        local dx=math.abs(vx)
+        local dy=math.abs(vy)
+        local player_velocity = math.sqrt((dx*dx)+(dy*dy))
+
         if player_velocity < tractorBeam.TEAROFF_VELOCITY then
             --print(string.format("%s velocity: %.1f slow enough to establish tractor",player_name,player_velocity))
             if player_ship._tractorBeamData.target_lock then
