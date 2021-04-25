@@ -3,11 +3,11 @@
 --- Code is extracted from Xansta's sandbox scenario. 
 
 --  If you want to use Tractor Beam functionality, you need to call:
---  * tractorBeam:update(player_ship, delta) function for each of your player ships in update() function
+--  * tractorBeam:update(delta) function in scenario update() function
 
 -- To set up tractor beam functionality, you need to call tractorBeam:enable(player_ship) on required ship. 
 -- To remove tractor beam functionality, you need to call tractorBeam:disable(player_ship) on required ship. 
--- Ro check if tractor beam functionality is enabled, you need to call tractorBeam:isEnabled(player_ship) on required ship.
+-- To check if tractor beam functionality is enabled, you need to call tractorBeam:isEnabled(player_ship) on required ship.
 
 -- TODO:
 -- * Tractor Beam power consumption is dependent on number of update() calls, not on time elapsed. 
@@ -16,15 +16,18 @@
 require("utils.lua")
 
 tractorBeam = {
-    DISTANCE = 1000,    -- aka 1U
-    TEAROFF_VELOCITY = 1,   -- If speed is above this value (roughly equals 3U/min)
+    DISTANCE = 1000,    -- aka 1U - Tractor beam range. Object beyond this range will not be shown in tractor beam controls.
+    ESTABILISH_VELOCITY = 1,    -- If ship speed is above this value, tractor beam cannot be initiated.
+    TEAROFF_VELOCITY =  50,     -- If ship speed is above this value, tractor beam cannot continue. (roughly equals 3U/min)
 
+    -- Textures for Tractor Beam visual effect. 
     textures_string = {
         "beam_blue.png",
         "shield_hit_effect.png",
         "electric_sphere_texture.png"
     },
-    energy_drain = .000005,
+    
+    energy_drain = 0.5,   -- Tractor beam energy drain per second.
     equipped_ships = {}
 }
 
@@ -33,29 +36,26 @@ function tractorBeam:enable(player_ship)
     if player_ship._tractorBeamData == nil then
         player_ship._tractorBeamData = {
             enabled = true,
-            target_lock = false
+            target_lock = false,
+            
+            -- Copy default values: 
+            energy_drain = tractorBeam.energy_drain
         }
-        table.insert(tractorBeam:equipped_ships, player_ship)
+        table.insert(tractorBeam.equipped_ships, player_ship)
     elseif player_ship._tractorBeamData.enabled == false then
         player_ship._tractorBeamData.enabled = true
-        player_ship._tractorBeamData.target_lock = false
-        table.insert(tractorBeam:equipped_ships, player_ship)
+        tractorBeam._disengageTractorBeam(player_ship)
+        table.insert(tractorBeam.equipped_ships, player_ship)
     end
 end
 
 -- This removes tractor beam function on specified player ship
 function tractorBeam:disable(player_ship)
     if player_ship._tractorBeamData ~= nil and player_ship._tractorBeamData.enabled == true then
-        --print("TB disable", player_ship:getCallSign())
         player_ship._tractorBeamData.enabled = false
-        player_ship._tractorBeamData.target_lock = false
         tractorBeam:removeTractorObjectButtons(player_ship)
-        if player_ship._tractorBeamData.disengage_tractor_button ~= nil then
-            player_ship._tractorBeamData.target_lock = false
-            player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
-            player_ship._tractorBeamData.disengage_tractor_button = nil
-        end
-        table.remove(tractorBeam:equipped_ships, player_ship)
+        tractorBeam._disengageTractorBeam(player_ship)
+        table.remove(tractorBeam.equipped_ships, player_ship)
     end
 end
 
@@ -244,34 +244,40 @@ function tractorBeam:_nextTarget(player_ship)
     end
 end
 
-function tractorBeam:processTractor(player_ship)
+function tractorBeam:_disengageTractorBeam(player_ship)
+    player_ship._tractorBeamData.target_lock = false
+    if player_ship._tractorBeamData.disengage_tractor_button ~= nil then
+        player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
+        player_ship._tractorBeamData.disengage_tractor_button = nil
+    end
+end
+
+function tractorBeam:_processTractor(player_ship, delta)
     local cpx, cpy = player_ship:getPosition()
     
-    if player_ship._tractorBeamData.tractor_target ~= nil and player_ship._tractorBeamData.tractor_target:isValid() then -- Valid tractor beam target ready to lock
+    if player_ship._tractorBeamData.tractor_target ~= nil and player_ship._tractorBeamData.tractor_target:isValid() then -- Valid and locked tractor beam target
         player_ship._tractorBeamData.tractor_target:setPosition(cpx+player_ship._tractorBeamData.tractor_vector_x,cpy+player_ship._tractorBeamData.tractor_vector_y)
-        player_ship:setEnergy(player_ship:getEnergy() - player_ship:getMaxEnergy()*tractorBeam.energy_drain)
+        player_ship:setEnergy(player_ship:getEnergy() - player_ship._tractorBeamData.energy_drain*delta)
+        
         if random(1,100) < 27 then
             BeamEffect():setSource(player_ship,0,0,0):setTarget(player_ship._tractorBeamData.tractor_target,0,0):setDuration(1):setRing(false):setTexture(tractorBeam.textures_string[math.random(1,#tractorBeam.textures_string)])
         end
+        
         if player_ship._tractorBeamData.disengage_tractor_button == nil then
             player_ship._tractorBeamData.disengage_tractor_button = "disengage_tractor_button"
             player_ship:addCustomButton("Engineering",player_ship._tractorBeamData.disengage_tractor_button,"Disengage Tractor",function()
-                player_ship._tractorBeamData.target_lock = false
-                player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
-                player_ship._tractorBeamData.disengage_tractor_button = nil
+                tractorBeam:_disengageTractorBeam(player_ship)
             end)
         end
     else	--invalid tractor target
-        player_ship._tractorBeamData.target_lock = false
-        player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
-        player_ship._tractorBeamData.disengage_tractor_button = nil
+        tractorBeam:_disengageTractorBeam(player_ship)
     end
 end
 
 -- Updates all tractor-beam equipped ships and locked targets.
 -- This function needs to be called inside update() function with delta specified.
 function tractorBeam:update(delta)
-    for _, player_ship in ipairs(tractorBeam:equipped_ships) do
+    for _, player_ship in ipairs(tractorBeam.equipped_ships) do
         tractorBeam:updateShip(player_ship, delta)
     end
 end
@@ -282,18 +288,16 @@ end
 -- @param delta: time difference between last call and this call.
 function tractorBeam:updateShip(player_ship, delta)
     if tractorBeam:isEnabled(player_ship) == true then       --Process this only if the ship has Tractor beam enabled. 
-        player_name = player_ship:getCallSign()
-        --print("TB update: ", player_ship:getCallSign())
+        
         -- Count velocity of player ship, tractor beam works on low velocities only.
         local vx, vy = player_ship:getVelocity()
         local dx=math.abs(vx)
         local dy=math.abs(vy)
         local player_velocity = math.sqrt((dx*dx)+(dy*dy))
 
-        if player_velocity < tractorBeam.TEAROFF_VELOCITY then
-            --print(string.format("%s velocity: %.1f slow enough to establish tractor",player_name,player_velocity))
+        if player_velocity < tractorBeam.ESTABILISH_VELOCITY then   -- Slow enough to establish tractor
             if player_ship._tractorBeamData.target_lock then
-                tractorBeam:processTractor(player_ship)
+                tractorBeam:_processTractor(player_ship, delta)
             else	--tractor not locked on target
                 local tractor_objects = tractorBeam:getTractorObjects(player_ship)
                 if tractor_objects ~= nil and #tractor_objects > 0 then
@@ -315,7 +319,7 @@ function tractorBeam:updateShip(player_ship, delta)
                     end --end of IF tractor_target is set and valid
                     tractorBeam:addTractorObjectButtons(player_ship,tractor_objects)
                 else	--no nearby tractorable objects
-                    --print("TB no nearby tractorable objects", player_name)
+                    --print("TB no nearby tractorable objects", player_ship:getCallSign())
                     if player_ship._tractorBeamData.tractor_target ~= nil then
                         tractorBeam:removeTractorObjectButtons(player_ship)
                         player_ship._tractorBeamData.tractor_target = nil
@@ -324,9 +328,9 @@ function tractorBeam:updateShip(player_ship, delta)
             end
         else	--not moving slowly enough to establish tractor
             tractorBeam:removeTractorObjectButtons(player_ship)
-            --print(string.format("%s velocity: %.1f too fast to establish tractor",player_name,player_velocity))
-            if player_velocity > 50 then
-                --print(string.format("%s velocity: %.1f too fast to continue tractor",player_name,player_velocity))
+            --print(string.format("%s velocity: %.1f too fast to establish tractor",player_ship:getCallSign(),player_velocity))
+            if player_velocity > tractorBeam.TEAROFF_VELOCITY then
+                --print(string.format("%s velocity: %.1f too fast to continue tractor",player_ship:getCallSign(),player_velocity))
                 player_ship._tractorBeamData.target_lock = false
                 if player_ship._tractorBeamData.disengage_tractor_button ~= nil then
                     player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
@@ -334,9 +338,9 @@ function tractorBeam:updateShip(player_ship, delta)
                 end
             else
                 if player_ship._tractorBeamData.target_lock then
-                    tractorBeam:processTractor(player_ship)
+                    tractorBeam:_processTractor(player_ship, delta)
                 end		--end of tractor lock processing				
             end		--end of player moving slow enough to tractor branch
         end		--end of speed checks for tractoring
-    end		--end of tractor checks
+    end		--end of tractor enabled check
 end
