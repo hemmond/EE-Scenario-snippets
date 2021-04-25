@@ -31,7 +31,8 @@ function GM_buttons_init()
         end
     )
     
-    tractorBeam:GMButtons(GM_buttons_init)
+    tractorBeam:GMFunctions(GM_buttons_init)
+    --tractorBeam:GMFunctions()
 end 
 
 function init()
@@ -46,7 +47,7 @@ function init()
     tractorBeam:enable(player)
     
     GM_buttons_init()
-    player:setEnergy(100)
+    --player:setEnergy(100)
 end
 
 function update(delta)

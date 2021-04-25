@@ -17,7 +17,7 @@ require("utils.lua")
 
 tractorBeam = {
     DISTANCE = 1000,    -- aka 1U - Tractor beam range. Object beyond this range will not be shown in tractor beam controls.
-    ESTABILISH_VELOCITY = 1,    -- If ship speed is above this value, tractor beam cannot be initiated.
+    LOCK_ON_VELOCITY = 1,    -- If ship speed is above this value, tractor beam cannot be initiated.
     TEAROFF_VELOCITY =  50,     -- If ship speed is above this value, tractor beam cannot continue. (roughly equals 3U/min)
 
     -- Textures for Tractor Beam visual effect. 
@@ -31,7 +31,7 @@ tractorBeam = {
     equipped_ships = {}
 }
 
--- This enables tractor beam function on specified player ship
+-- Enable tractor beam function on specified player ship
 function tractorBeam:enable(player_ship)
     if player_ship._tractorBeamData == nil then
         player_ship._tractorBeamData = {
@@ -39,7 +39,9 @@ function tractorBeam:enable(player_ship)
             target_lock = false,
             
             -- Copy default values: 
-            energy_drain = tractorBeam.energy_drain
+            energy_drain = tractorBeam.energy_drain,
+            LOCK_ON_VELOCITY = tractorBeam.LOCK_ON_VELOCITY, 
+            TEAROFF_VELOCITY = tractorBeam.TEAROFF_VELOCITY
         }
         table.insert(tractorBeam.equipped_ships, player_ship)
     elseif player_ship._tractorBeamData.enabled == false then
@@ -49,7 +51,7 @@ function tractorBeam:enable(player_ship)
     end
 end
 
--- This removes tractor beam function on specified player ship
+-- Remove tractor beam function on specified player ship
 function tractorBeam:disable(player_ship)
     if player_ship._tractorBeamData ~= nil and player_ship._tractorBeamData.enabled == true then
         player_ship._tractorBeamData.enabled = false
@@ -60,6 +62,48 @@ function tractorBeam:disable(player_ship)
                 table.remove(tractorBeam.equipped_ships, index)
             end
         end
+    end
+end
+
+-- get energy drain of player ship
+function tractorBeam:getEnergyDrain(player_ship)
+    return player_ship._tractorBeamData.energy_drain
+end
+
+-- set energy drain of player_ship
+function tractorBeam:setEnergyDrain(player_ship, value)
+    if value < 0 then
+        player_ship._tractorBeamData.energy_drain = 0
+    else
+        player_ship._tractorBeamData.energy_drain = value
+    end
+end
+
+-- get lock on velocity of player ship
+function tractorBeam:getLockOnVelocity(player_ship)
+    return player_ship._tractorBeamData.LOCK_ON_VELOCITY
+end
+
+-- set lock on velocity of player_ship
+function tractorBeam:setLockOnVelocity(player_ship, value)
+    if value < 0 then
+        player_ship._tractorBeamData.LOCK_ON_VELOCITY = 0
+    else
+        player_ship._tractorBeamData.LOCK_ON_VELOCITY = value
+    end
+end
+
+-- get tearoff velocity of player ship
+function tractorBeam:getTearoffVelocity(player_ship)
+    return player_ship._tractorBeamData.TEAROFF_VELOCITY
+end
+
+-- set tearoff velocity of player_ship
+function tractorBeam:setTearoffVelocity(player_ship, value)
+    if value < 0 then
+        player_ship._tractorBeamData.TEAROFF_VELOCITY = 0
+    else
+        player_ship._tractorBeamData.TEAROFF_VELOCITY = value
     end
 end
 
@@ -304,13 +348,12 @@ function tractorBeam:updateShip(player_ship, delta)
         local dy=math.abs(vy)
         local player_velocity = math.sqrt((dx*dx)+(dy*dy))
 
-        if player_velocity < tractorBeam.ESTABILISH_VELOCITY then   -- Slow enough to establish tractor
+        if player_velocity < player_ship._tractorBeamData.LOCK_ON_VELOCITY then   -- Slow enough to establish tractor
             if player_ship._tractorBeamData.target_lock then
                 tractorBeam:_processTractor(player_ship, delta)
             else	--tractor not locked on target
                 local tractor_objects = tractorBeam:getTractorObjects(player_ship)
                 if tractor_objects ~= nil and #tractor_objects > 0 then
-                    --print(string.format("%i tractorable objects under 1 unit away",#tractor_objects))
                     if player_ship._tractorBeamData.tractor_target ~= nil and player_ship._tractorBeamData.tractor_target:isValid() then
                         local target_in_list = false
                         for i=1,#tractor_objects do
@@ -328,7 +371,6 @@ function tractorBeam:updateShip(player_ship, delta)
                     end --end of IF tractor_target is set and valid
                     tractorBeam:addTractorObjectButtons(player_ship,tractor_objects)
                 else	--no nearby tractorable objects
-                    --print("TB no nearby tractorable objects", player_ship:getCallSign())
                     if player_ship._tractorBeamData.tractor_target ~= nil then
                         tractorBeam:removeTractorObjectButtons(player_ship)
                         player_ship._tractorBeamData.tractor_target = nil
@@ -337,9 +379,7 @@ function tractorBeam:updateShip(player_ship, delta)
             end
         else	--not moving slowly enough to establish tractor
             tractorBeam:removeTractorObjectButtons(player_ship)
-            --print(string.format("%s velocity: %.1f too fast to establish tractor",player_ship:getCallSign(),player_velocity))
-            if player_velocity > tractorBeam.TEAROFF_VELOCITY then
-                --print(string.format("%s velocity: %.1f too fast to continue tractor",player_ship:getCallSign(),player_velocity))
+            if player_velocity > player_ship._tractorBeamData.TEAROFF_VELOCITY then
                 player_ship._tractorBeamData.target_lock = false
                 if player_ship._tractorBeamData.disengage_tractor_button ~= nil then
                     player_ship:removeCustom(player_ship._tractorBeamData.disengage_tractor_button)
@@ -354,7 +394,12 @@ function tractorBeam:updateShip(player_ship, delta)
     end		--end of tractor enabled check
 end
 
-function tractorBeam:GMButtons(back_callback)
+-- -------------------------------------------------------------------------
+-- GM Configuration menu and sub-menus
+-- -------------------------------------------------------------------------
+
+--- Generate GM button as entrypoint to configurating Player Ship. 
+function tractorBeam:GMFunctions(back_callback)
     addGMFunction(
         "+Config Tractor",
         function()
@@ -374,15 +419,41 @@ function tractorBeam:GMButtons(back_callback)
     )
 end --end of GM Config Menu
 
+-- Generate sub-menu for configuring selected player ship. 
 function tractorBeam:_GMConfigureShip(player_ship, back_callback)
     clearGMFunctions()
     
     addGMFunction("-From Tractor Beam", function()
         clearGMFunctions()
-        back_callback()
+        if back_callback ~= nil then 
+            back_callback()
+        else
+            tractorBeam:GMButtons(back_callback)
+        end
     end)
     
-    addGMFunction("CFG: "..player_ship:getCallSign(), function() string.format("") end)
+    
+    addGMFunction("CFG: "..player_ship:getCallSign(), function()
+        string.format("")
+        msg = "Tractor beam configuration:\n"
+        msg = msg.."Callsign: "..player_ship:getCallSign().."\n"
+        msg = msg.."Tractor beam: "
+        if tractorBeam:isEnabled(player_ship) then
+            msg = msg.."Enabled"
+        else
+            msg = msg.."Disabled"
+        end
+        msg = msg.."\n"
+        
+        msg = msg.."Power consumption: "..tractorBeam:getEnergyDrain(player_ship).."/second\n"
+        msg = msg.."Lock on velocity: "..tractorBeam:getLockOnVelocity(player_ship).."\n"
+        msg = msg.."Tearoff velocity: "..tractorBeam:getTearoffVelocity(player_ship).."\n"
+        msg = msg.."\n"
+        if player_ship._tractorBeamData.target_lock and player_ship._tractorBeamData.tractor_target ~= nil and player_ship._tractorBeamData.tractor_target:isValid() then
+            msg = msg.."Currently tractoring "..player_ship._tractorBeamData.tractor_target.typeName..": "..player_ship._tractorBeamData.tractor_target:getCallSign()
+        end
+        addGMMessage(msg)
+    end)
     
     if tractorBeam:isEnabled(player_ship) then 
         addGMFunction("TB disable", function()
@@ -396,4 +467,114 @@ function tractorBeam:_GMConfigureShip(player_ship, back_callback)
         end)
     end
     
+    addGMFunction("+Energy drain", function()
+        tractorBeam:_GMSetEnergyDrain(player_ship, back_callback)
+    end)
+    
+    addGMFunction("+Lock on velocity", function()
+        tractorBeam:_GMSetLockOnVelocity(player_ship, back_callback)
+    end)
+    
+    addGMFunction("+Tearoff velocity", function()
+        tractorBeam:_GMSetTearoffVelocity(player_ship, back_callback)
+    end)
+    
 end --end of GM Config Menu
+
+-- Helper function that generates buttons to set specified numeric value. 
+-- @param getter: function that returns current numeric value.
+-- @param setter: function that takes 1 argument = new numeric value to set. 
+-- @param reload: function that gets called every time GM makes a change (and should re-draw this GM sub-menu, thus call this function again).
+-- @param values: Numeric values that ends up buttons to add/subsrtract from value retrieved with getter. Maximum of 4 elements is recommended. 
+function numericChangeDialogue(getter, setter, reload, values)
+    table.sort(values)  -- get values from low to high
+    
+    -- Increasing buttons
+    for i=1, #values do
+        local value = values[#values + 1 - i]
+        addGMFunction("+"..value, function()
+            string.format("")
+            setter(getter()+value)
+            reload()
+        end)
+    end
+    
+    -- Show value
+    addGMFunction("="..getter(), function() string.format("") end)
+    
+    -- Decreasing buttons
+    for i=1, #values do
+        local value = values[i]
+        addGMFunction("-"..value, function()
+            string.format("")
+            setter(getter()-value)
+            reload()
+        end)
+    end
+end
+
+-- Dialog to set energy drain.
+function tractorBeam:_GMSetEnergyDrain(player_ship, back_callback)
+    clearGMFunctions()
+    addGMFunction("-From Energy drain", function()
+        clearGMFunctions()
+        tractorBeam:_GMConfigureShip(player_ship, back_callback)
+    end)
+    
+    numericChangeDialogue(
+        function() --getter
+            return tractorBeam:getEnergyDrain(player_ship)
+        end, 
+        function(x) --setter
+            tractorBeam:setEnergyDrain(player_ship, x)
+        end, 
+        function() --reload
+            tractorBeam:_GMSetEnergyDrain(player_ship, back_callback)
+        end, 
+        {10, 1, 0.1, 0.001}
+    )
+end
+
+-- Dialog to set lock on velocity.
+function tractorBeam:_GMSetLockOnVelocity(player_ship, back_callback)
+    clearGMFunctions()
+    addGMFunction("-From Lock on velocity", function()
+        clearGMFunctions()
+        tractorBeam:_GMConfigureShip(player_ship, back_callback)
+    end)
+    
+    numericChangeDialogue(
+        function() --getter
+            return tractorBeam:getLockOnVelocity(player_ship)
+        end, 
+        function(x) --setter
+            tractorBeam:setLockOnVelocity(player_ship, x)
+        end, 
+        function() --reload
+            tractorBeam:_GMSetLockOnVelocity(player_ship, back_callback)
+        end, 
+        {10, 5, 1}
+    )
+end
+
+-- Dialog to set tearoff velocity.
+function tractorBeam:_GMSetTearoffVelocity(player_ship, back_callback)
+    clearGMFunctions()
+    addGMFunction("-From Tearoff velocity", function()
+        clearGMFunctions()
+        tractorBeam:_GMConfigureShip(player_ship, back_callback)
+    end)
+    
+    numericChangeDialogue(
+        function() --getter
+            return tractorBeam:getTearoffVelocity(player_ship)
+        end, 
+        function(x) --setter
+            tractorBeam:setTearoffVelocity(player_ship, x)
+        end, 
+        function() --reload
+            tractorBeam:_GMSetTearoffVelocity(player_ship, back_callback)
+        end, 
+        {50, 10, 5, 1}
+    )
+end
