@@ -44,7 +44,7 @@ function tractorBeam:enable(player_ship)
         table.insert(tractorBeam.equipped_ships, player_ship)
     elseif player_ship._tractorBeamData.enabled == false then
         player_ship._tractorBeamData.enabled = true
-        tractorBeam._disengageTractorBeam(player_ship)
+        tractorBeam:_disengageTractorBeam(player_ship)
         table.insert(tractorBeam.equipped_ships, player_ship)
     end
 end
@@ -54,8 +54,12 @@ function tractorBeam:disable(player_ship)
     if player_ship._tractorBeamData ~= nil and player_ship._tractorBeamData.enabled == true then
         player_ship._tractorBeamData.enabled = false
         tractorBeam:removeTractorObjectButtons(player_ship)
-        tractorBeam._disengageTractorBeam(player_ship)
-        table.remove(tractorBeam.equipped_ships, player_ship)
+        tractorBeam:_disengageTractorBeam(player_ship)
+        for index, ship in ipairs(tractorBeam.equipped_ships) do
+            if ship == player_ship then
+                table.remove(tractorBeam.equipped_ships, index)
+            end
+        end
     end
 end
 
@@ -269,7 +273,12 @@ function tractorBeam:_processTractor(player_ship, delta)
                 tractorBeam:_disengageTractorBeam(player_ship)
             end)
         end
-    else	--invalid tractor target
+        
+        if player_ship:getEnergy() < 2 then
+            player_ship:addCustomMessage("Engineering", "no_energy_msg", "No energy left for sustaining tractor beam. Tractor beam disengaged.")
+            tractorBeam:_disengageTractorBeam(player_ship)
+        end
+    else	-- tractor target no longer invalid
         tractorBeam:_disengageTractorBeam(player_ship)
     end
 end
@@ -344,3 +353,47 @@ function tractorBeam:updateShip(player_ship, delta)
         end		--end of speed checks for tractoring
     end		--end of tractor enabled check
 end
+
+function tractorBeam:GMButtons(back_callback)
+    addGMFunction(
+        "+Config Tractor",
+        function()
+            local ships = getGMSelection()
+            local shipFound = false
+            for i=1, #ships do
+                if ships[i].typeName == "PlayerSpaceship" then
+                shipFound = true
+                    tractorBeam:_GMConfigureShip(ships[i], back_callback)
+                end
+            end
+            
+            if shipFound ==false then
+                addGMMessage("Select exactly one player ship to configure Tractor Beam.")
+            end
+        end
+    )
+end --end of GM Config Menu
+
+function tractorBeam:_GMConfigureShip(player_ship, back_callback)
+    clearGMFunctions()
+    
+    addGMFunction("-From Tractor Beam", function()
+        clearGMFunctions()
+        back_callback()
+    end)
+    
+    addGMFunction("CFG: "..player_ship:getCallSign(), function() string.format("") end)
+    
+    if tractorBeam:isEnabled(player_ship) then 
+        addGMFunction("TB disable", function()
+            tractorBeam:disable(player_ship)
+            tractorBeam:_GMConfigureShip(player_ship, back_callback)
+        end)
+    else
+        addGMFunction("TB enable", function()
+            tractorBeam:enable(player_ship)
+            tractorBeam:_GMConfigureShip(player_ship, back_callback)
+        end)
+    end
+    
+end --end of GM Config Menu

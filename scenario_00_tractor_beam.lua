@@ -46,6 +46,7 @@ function init()
     tractorBeam:enable(player)
     
     GM_buttons_init()
+    player:setEnergy(100)
 end
 
 function update(delta)
