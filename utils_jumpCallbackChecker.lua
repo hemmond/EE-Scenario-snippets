@@ -71,7 +71,6 @@ function jumpCallbackChecker:_update_ship(ship)
             dist = distance(ship._jumpCallbackCheckerData.LAST_POS_X, ship._jumpCallbackCheckerData.LAST_POS_Y, ship)
             if dist > jumpCallbackChecker.MIN_DISTANCE then
                 ship._jumpCallbackCheckerData.jump_finished()
-                print(ship, "jump finished")
                 ship._jumpCallbackCheckerData.jump_in_progress = false
             end
         end
@@ -79,7 +78,6 @@ function jumpCallbackChecker:_update_ship(ship)
         if charge < ship._jumpCallbackCheckerData.JUMP_CHARGE then
             ship._jumpCallbackCheckerData.jump_initiated()
             ship._jumpCallbackCheckerData.jump_in_progress = true
-            print(ship, "jump initiated")
         end
         
         local pos_x, pos_y = ship:getPosition()
